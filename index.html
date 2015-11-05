@@ -380,13 +380,13 @@
                   case 'rtmp':
                   break;
                   case 'm3u8':
-                  live_url = output.relative_dir + output.file_name;
+                  live_url = output.relative_dir + 'l_' + output.file_name;
                   break;
                   default:
                 }
-                } else if (is_ios || isSafari()) {
+              } else if (is_ios || isSafari()) {
                 if ('m3u8' == output.format) {
-                  live_url = output.relative_dir + output.file_name;
+                  live_url = output.relative_dir + 'l_' + output.file_name;
                 }
               } 
               var play_btn = '';
