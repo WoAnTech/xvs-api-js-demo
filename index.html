@@ -181,7 +181,6 @@
         if (is_ios) {
           player_style = "display: block; width: 280; height: 210px"
         }
-        file_name = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/' +file_name;
         if (detectFlashInstalled()) {
           if (iplayer != null) {
             iplayer.stop();
@@ -196,7 +195,6 @@
             $("#woan_player").load();
             $("#woan_player").play();
           } else if (detectFlashInstalled()) {
-            file_name = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/' +  file_name;
             parameters.autoPlay = true;
             parameters.src = file_name;
             console.log(parameters.src);
@@ -355,7 +353,7 @@
             var task = data.list[i];
             var cancel_button_txt = '';
             if (is_console) {
-              var cancel_button_txt = '<button class="cancel btn btn-danger" data="' + task.id + '" >停止</button>';
+              var cancel_button_txt = '<button class="cancel btn btn-danger" data="' + task.task_id + '" >停止</button>';
             }
             var progress = '直播';
             if (task.progress > 0) {
@@ -375,12 +373,13 @@
               if (detectFlashInstalled()) {
                 switch(output.format) {
                   case 'flv':
-                  live_url = '/live/id/' + output.file_name;
+                  live_url = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/live/id/' + output.file_name;
                   break;
                   case 'rtmp':
+                  live_url = 'rtmp://' + $(location).attr('hostname') + ":1935/live/" + output.file_name;
                   break;
                   case 'm3u8':
-                  live_url = output.relative_dir + 'l_' + output.file_name;
+                  live_url = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/' + output.relative_dir + 'l_' + output.file_name;
                   break;
                   default:
                 }
@@ -393,7 +392,11 @@
               if (live_url) {
                 play_btn = '<button  class="play btn btn-primary"  data-url="' + live_url + '" data-width="'+output.width+'" data-height="'+output.height+'">播放</button>';
               }
-              tr += '<tr><td></td><td>输出'+(j+1)+' </td><td> ' + output.format + '</td><td>'+play_btn+'</td><td td class="hidden-phone">' + output.width + 'x' + output.height + '</td><td class="hidden-phone">' + output.file_name + '</td></tr>';
+              var danmu_btn = '';
+              if (output.danmu && output.danmu.length>0) {
+                danmu_btn = '<button  class="danmu play btn" data-task-id="' + task.task_id + '" data-output-index="' + j + '" data-text-channel-num="' + output.danmu.length + '"> 弹幕</button>';
+              }
+              tr += '<tr><td></td><td>输出'+(j+1)+' </td><td> ' + output.format + '</td><td>'+play_btn+'</td><td>'+danmu_btn+'</td><td td class="hidden-phone">' + output.width + 'x' + output.height + '</td><td class="hidden-phone">' + output.file_name + '</td></tr>';
             }
             $('#list').append($(tr)); 
           }
@@ -401,6 +404,21 @@
           $('button.play').click(function() {
             call_player($(this).attr('data-url'), $(this).attr('data-width'), $(this).attr('data-height'));
           });
+
+          $('button.danmu').click(function() {
+            $('#send_danmu_btn').attr('data-task-id', $(this).attr('data-task-id'));
+            $('#send_danmu_btn').attr('data-output-index', $(this).attr('data-output-index'));
+            var channel_num = $(this).attr('data-text-channel-num');
+            var channel_html = '';
+            for (var i = 0; i < channel_num; i++) {
+              channel_html += '<input type="radio" name="danmu_channel" value="'+i+'" />通道' + i;   
+            }
+            $('#text_channels').html(channel_html);
+            $(":radio[name='danmu_channel']:first").attr("checked", "checked");
+            $('#danmu_model').modal();
+          });
+
+         
           $('button.cancel').click(function() {
             cancel_task($(this).attr('data'));
           });
@@ -491,6 +509,23 @@
           }
         });
       });
+
+      $('#send_danmu_btn').click(function() {
+        var task_id =  $(this).attr('data-task-id');
+        var output_index  = $(this).attr('data-output-index');
+        var text_channel_index = $(":radio[name='danmu_channel']:checked").val();
+        var uri = "/action/danmu";
+        query_string="task_id="+$(this).attr('data-task-id')+"&output_index="+$(this).attr('data-output-index')+"&text_index="+text_channel_index+"&text="+$('#danmu_text').val();
+        var now = new Date().format("yyyy-MM-ddThh:mm:ss +0000");
+        var signature = make_signature(uri, query_string, now, "danmu");
+        $.ajax({
+          url: uri + "?" + query_string,
+          headers: {"xvs-timestamp" : now, "xvs-signature": signature},
+          success: function(json_data) {
+            console.log("ret: " + json_data.ret);
+          }
+        });
+      });
     });
 
     /*
@@ -520,9 +555,20 @@
       } 
       FWRecorder.recorder.init(action_url, "upload_file[filename]", $("#uploadForm").serializeArray(), signature, now);
     }
+
+    
   </script>
 </head>
 <body>
+  <div id="danmu_model" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="" style="margin:10px;" align="center">
+        <label>选择通道: </label>
+        <div id="text_channels"></div>
+        <label>输入弹幕文本: </label>
+        <textarea id="danmu_text" rows="7" style="clear: both; width:60%; "></textarea>
+        <button id="send_danmu_btn">发送</button>
+      </div>
+  </div>
   <div align="center">
     <a href="https://www.zhiboyun.com">沃安直播云</a>
     <h2>Xvs视频服务器接口调用及播放演示</h2>
@@ -551,6 +597,7 @@
         <input type="button" id="btn_send_msg" class="btn btn-primary" value="发送消息">
       </div>
     </div>
+
     <!--
     <div id="create_task_test" class="container" style="clear: both;height: 180px; ">
       <form accept-charset="UTF-8" action="/action/upload_file_task?output_tag=tcp_output" enctype="multipart/form-data" method="post"><div style="margin:0;padding:0;display:inline"></div>
