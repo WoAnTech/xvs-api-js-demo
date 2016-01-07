@@ -461,15 +461,19 @@
               }
               var live_url = null;
               if (detectFlashInstalled()) {
+                var port_str = "";
+                if ($(location).attr('port')) {
+                  port_str = ":" + $(location).attr('port');
+                }
                 switch(output.format) {
                   case 'flv':
-                  live_url = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/live/id/' + output.file_name;
+                  live_url = 'http://' + $(location).attr('hostname') + port_str + '/live/id/' + output.file_name;
                   break;
                   case 'rtmp':
                   live_url = 'rtmp://' + $(location).attr('hostname') + ":1935/live/" + output.file_name;
                   break;
                   case 'm3u8':
-                  live_url = 'http://' + $(location).attr('hostname') + ":" + $(location).attr('port') + '/' + output.relative_dir + 'l_' + output.file_name;
+                  live_url = 'http://' + $(location).attr('hostname') + port_str + '/' + output.relative_dir + 'l_' + output.file_name;
                   break;
                   default:
                 }
