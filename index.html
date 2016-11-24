@@ -68,10 +68,10 @@
         var delayTolerance = 300;  // milliseconds
         // reconnect when the client doesn't receive any frame for this milliseconds
         var mediaTimeout = 2000;  // milliseconds
-        parameters.initialBufferTime = 0;  // buffer to fill before play begins
+        parameters.initialBufferTime = 1;  // buffer to fill before play begins
         parameters.expandedBufferTime = delayTolerance / 500;  // maximum buffer size
-        parameters.minContinuousPlayback = 0;  // minimum playback time without pausing
-        parameters.liveBufferTime = 0;  // buffer time for live content
+        parameters.minContinuousPlayback = 1;  // minimum playback time without pausing
+        parameters.liveBufferTime = 1;  // buffer time for live content
         parameters.streamType = 'live';
         parameters.javascriptCallbackFunction = onPlayerEvent;
         return parameters;
@@ -152,6 +152,8 @@
         src: "",
         autoPlay: "false",
         verbose: true,
+        initialBufferTime: 300,
+        liveBufferTime: 1,  // buffer time for live content
         controlBarAutoHide: "true",
         controlBarPosition: "bottom",
         poster: "images/poster.png",
@@ -473,7 +475,7 @@
                   live_url = 'rtmp://' + $(location).attr('hostname') + ":1935/live/" + output.file_name;
                   break;
                   case 'm3u8':
-                  live_url = 'http://' + $(location).attr('hostname') + port_str + '/' + output.relative_dir + 'l_' + output.file_name;
+                  live_url = 'http://' + $(location).attr('hostname') + port_str + '/' + output.relative_dir + output.file_name;
                   break;
                   default:
                 }
@@ -544,6 +546,7 @@
           url += "&output_file_name=" + val;
         }
         $.ajax({
+          type: 'POST',
           url: url,
           success: function(json_data) {
             alert("ret: " + json_data.ret + ", task_id:" + json_data.task_id);
@@ -559,6 +562,7 @@
         var now = new Date().format("yyyy-MM-ddThh:mm:ss +0000").toString();
         var signature = make_signature(uri, query_string, now, TASK_ACTION_KEY).toString();
         $.ajax({
+          type: 'POST',
           url: uri + "?" + query_string,
           headers: {"xvs-timestamp" : now, "xvs-signature": signature},
           success: function(json_data) {
