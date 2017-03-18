@@ -700,16 +700,12 @@
 					}
 				}
 
-				var progress = '直播';
-				if (task.progress > 0) {
-					progress = '进度' + (task.progress * 100).toFixed(0) + '%';
-				}
 				if (is_ios) {
 					progress = '';
 				}
 				var tr = '<tr><td>输入信号' + (task.sequence + 1) 
 					+ '</td><td>用户名:' + task.inputs[0].user_name 
-					+ '</td><td>' + progress + '</td><td>' + task.input_bytes +
+					+ '</td><td>' + task.input_bytes +
 					'</td><td>' + cancel_button_txt + '</td></tr>';
 				for (var j = 0; j < task.outputs.length; j++) {
 					var output = task.outputs[j];
