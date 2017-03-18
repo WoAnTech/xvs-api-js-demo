@@ -1,0 +1,1063 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>私有服务远程协助测试页面</title>
+        <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+        <link href="bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
+        <script src="javascripts/jquery.js" type="text/javascript"></script>
+        <script src="javascripts/jquery.mousewheel.min.js" type="text/javascript"></script>
+        <script src="bootstrap/js/bootstrap.min.js"></script>
+        <script src="javascripts/jquery-ui.js"></script>
+        <script type="text/javascript" src="javascripts/swfobject.js"></script>
+        <script type="text/javascript" src="javascripts/recorder.js"></script>
+        <script type="text/javascript" src="javascripts/main4recorder.js"></script>
+        <script type="text/javascript" src="javascripts/hmac-sha256.js"></script>
+        <style type="text/css">
+            #rectBox {
+                background: #CCFFFF;
+                border: 2px solid #0099FF;
+                filter: alpha(opacity=30);
+                opacity: 0.3;
+                position: absolute;
+            }
+        </style>
+        <script>
+            var playerWidth = 800;
+            var playerHeight = 600;
+            // maximum allowed delay of live streaming
+            var delayTolerance = 500;
+            // milliseconds
+            // reconnect when the client doesn't receive any frame for this milliseconds
+            var mediaTimeout = 2000;
+            // milliseconds
+            var parameters = {
+                src: '',
+                width: playerWidth,
+                height: playerHeight,
+                controlBarMode: 'none',
+                autoPlay: true,
+                // start playing the media after page load
+                initialBufferTime: 0,
+                // buffer to fill before play begins
+                expandedBufferTime: delayTolerance / 500,
+                // maximum buffer size
+                minContinuousPlayback: 0,
+                // minimum playback time without pausing
+                liveBufferTime: 0,
+                // buffer time for live content
+                streamType: 'live',
+                scaleMode: 'letterbox',
+                // don't scale the video width and height
+                verbose: true,
+                // display detailed error messages for debugging
+                javascriptCallbackFunction: onPlayerEvent,
+                plugin_hls: "swf/wmp_plugin_hls.swf"
+            };
+            var originTime = null;
+            // system time for the media time zero
+            var timeoutTimer = null;
+            // timeout id
+            var player = null;
+            // Player object (element)
+            // called when a player event happened
+            function onPlayerEvent(playerId, eventName, eventObj) {
+                // grab the player object
+                if (player === null) {
+                    player = document.getElementById(playerId);
+                    console.log(player);
+                }
+                if (eventName === 'timeupdate') {
+                    // time information
+                    if (isNaN(eventObj.currentTime)) {
+                        // ignore NaN
+                        return;
+                    }
+                    if (eventObj.currentTime === 0) {
+                        // ignore time zero
+                        return;
+                    }
+                    var currentMediaTime = eventObj.currentTime * 1000;
+                    var now = new Date().getTime();
+                    if (originTime === null) {
+                        originTime = now - currentMediaTime;
+                    }
+                    // calculate the media time from originTime
+                    var projectedMediaTime = now - originTime;
+                    var mediaTimeDiff = projectedMediaTime - currentMediaTime;
+                    if (mediaTimeDiff > delayTolerance) {
+                        // the delay exceeds tolerance
+                        // reload the stream
+                        player.pause();
+                        player.play2();
+                    } else if (mediaTimeDiff < 0) {
+                        // originTime was late
+                        // update originTime
+                        originTime = now - currentMediaTime;
+                    }
+                    scheduleMediaTimeout();
+                } else if (eventName === 'play') {
+                    // play has begun
+                    cancelMediaTimeout();
+                    // reset originTime
+                    originTime = null;
+                }
+            }
+            // cancel the media timeout
+            function cancelMediaTimeout() {
+                if (timeoutTimer !== null) {
+                    clearTimeout(timeoutTimer);
+                }
+            }
+            // schedule the media timeout
+            function scheduleMediaTimeout() {
+                cancelMediaTimeout();
+                timeoutTimer = setTimeout(onMediaTimeout, mediaTimeout);
+            }
+            // called when the media has timed out
+            function onMediaTimeout() {
+                try {
+                    if (player.getState() === 'paused') {
+                        // player is paused
+                        return;
+                    }
+                } catch (e) {
+                    console.log("get player status exception:" + e);
+                    return;
+                }
+                // reload the stream
+                player.pause();
+                player.play2();
+            }
+        </script>
+        <script type="text/javascript">
+            
+            
+            
+            
+            
+            
+            
+		var drawing = false;
+		function Rect() {
+			this.doc = document.getElementById('pp');
+			if (!this.doc) return;
+			this.startX = '';
+			this.startY = '';
+			this.width = '';
+			this.height = '';
+			rectSelf = this;
+		}
+
+		Rect.prototype.down = function (e) {
+			var dst_user_name = $("#player").attr("data-user_name");
+			if (dst_user_name == null) {
+				console.log("dst_user_name is null");
+				rectSelf.showRect(false);
+				return;
+			}
+			console.log("down");
+			var e = e ? e : window.event;
+			rectSelf.startX = e.pageX ? e.pageX : e.clientX + document.documentElement.scrollLeft || document.body.scrollLeft;
+			rectSelf.startY = e.pageY ? e.pageY : e.clientY + document.documentElement.scrollTop + document.body.scrollTop;
+			rectSelf.showRect(true);
+			drawing = true
+		}
+
+		var id_hide_timeout = null;
+
+		Rect.prototype.up = function (e) {
+			drawing = false;
+			console.log("up");
+			var dst_user_name = $("#player").attr("data-user_name");
+			if (dst_user_name == null) {
+				rectSelf.showRect(false);
+				return;
+			}
+			//rectSelf.rectBox.style.width = '0px';
+			//rectSelf.rectBox.style.height = '0px';
+			rectSelf.showRect(true);
+			var width = $("#player").width();
+			var height = $("#player").height();
+			var pos = $("#player").offset();
+			var p_left = (rectSelf.startX - pos.left) / width;
+			var p_top = (rectSelf.startY - pos.top) / height;
+			var p_width = rectSelf.width / width;
+			var p_height = rectSelf.height / height;
+			console.log(msg);
+
+			var rads = document.getElementsByName("mouse_action");
+			var action = null;
+			for (var i = 0; i < rads.length; i++) {
+				if (rads[i].checked) {
+					action = rads[i].value;
+				}
+			}
+
+			var msg = '{"cmd": "' + action + '", "params": [' + p_left + ',' + p_top + ',' + p_width + ',' + p_height + ']}';
+			console.log(msg);			
+			send_txt_msg(msg);
+
+			if (id_hide_timeout) {
+				clearTimeout(id_hide_timeout);
+			}
+			id_hide_timeout = setTimeout(function () {
+				rectSelf.showRect(false);
+			}, 5000);
+		}
+
+		Rect.prototype.move = function (e) {
+			if (!drawing) return;
+			if (rectSelf.rectBox) {
+				var currentX = e.pageX ? e.pageX : e.clientX + document.documentElement.scrollLeft || document.body.scrollLeft;
+				var currentY = e.pageY ? e.pageY : e.clientY + document.documentElement.scrollTop + document.body.scrollTop;
+				rectSelf.width = Math.abs(currentX - rectSelf.startX);
+				rectSelf.rectBox.style.width = rectSelf.width + 'px';
+				rectSelf.height = Math.abs(currentY - rectSelf.startY);
+				rectSelf.rectBox.style.height = rectSelf.height + 'px';
+				if (currentX - rectSelf.startX < 0) {
+					rectSelf.rectBox.style.left = currentX + 'px';
+				}
+				if (currentY - rectSelf.startY < 0) {
+					rectSelf.rectBox.style.top = currentY + 'px';
+				}
+			}
+		}
+
+		Rect.prototype.showRect = function (bool) {
+			if (bool) {
+				if (!this.rectBox) {
+					this.rectBox = document.createElement("div");
+					this.rectBox.id = "rectBox";
+					document.body.appendChild(this.rectBox);
+				}
+				this.rectBox.style.display = "block";
+				this.rectBox.style.left = this.startX + 'px';
+				this.rectBox.style.top = this.startY + 'px';
+				this.addEventListener(this.doc, 'mousemove', this.move);
+			}
+			else {
+				if (this.rectBox) {
+					this.rectBox.style.display = "none";
+				}
+				this.removeEventListener(this.doc, 'mousemove', this.move);
+			}
+		}
+
+		Rect.prototype.addEventListener = function (o, e, l) {
+			if (o.addEventListener) {
+				o.addEventListener(e, l, false);
+			}
+			else if (o.attachEvent) {
+				o.attachEvent('on' + e, function () {
+					l(window.event);
+				});
+			}
+		}
+
+		Rect.prototype.removeEventListener = function (o, e, l) {
+			if (o.removeEventListener) {
+				o.removeEventListener(e, l, false);
+			}
+			else if (o.detachEvent) {
+				o.detachEvent('on' + e, function () {
+					l(window.event);
+				});
+			}
+		}        
+        
+        </script>
+        <style>
+            .hero-unit {
+                padding: 12px;
+                top-padding: 15px;
+            }
+
+            select {
+                width: 100px;
+            }
+
+            input {
+                width: 100px;
+            }
+
+            .form-horizontal .control-group {
+                margin-bottom: 5px;
+            }
+
+            .form-horizontal .controls {
+                margin-left: 100px;
+                width: 100px;
+            }
+
+            .form-horizontal .control-label {
+                width: 90px;
+            }
+
+            h1 a {
+                color: red;
+                text-decoration: none;
+            }
+
+            .container {
+                margin: 10px;
+                background-color: #f4f4f4;
+                padding-top: 25px;
+                padding: 20px;
+                font-family: sans-serif;
+                border-radius: 22px;
+            }
+
+            .control_panel {
+                white-space: nowrap;
+                padding: 0;
+                margin: 2px;
+                vertical-align: middle;
+                height: 24px;
+                background-color: #e7e7e7;
+                position: relative;
+            }
+
+            .control_panel a {
+                outline: none;
+                display: inline-block;
+                width: 24px;
+                height: 24px;
+                text-decoration: none;
+            }
+
+            .control_panel a img {
+                border: 0;
+                padding: 0;
+                margin: 0;
+            }
+
+            .control_panel .level {
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                background: linear-gradient(to right, #8bb300 0%, #3b9d00 100%);
+            }
+
+            .details {
+                font-size: 12px;
+            }
+
+            #save_button {
+                padding: 0;
+                margin: 0;
+            }
+
+            .play_button {
+                display: inline-block;
+            }
+
+            .pause_button {
+                display: inline-block;
+            }
+
+            .mic_config ul, .mic_config li {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                font-size: 12px
+            }
+
+            .scroll {
+                width: 95%;
+                /*宽度*/
+                color: ;
+                /*颜色*/
+                font-family: ;
+                /*字体*/
+                padding-left: 10px;
+                /*层内左边距*/
+                padding-right: 10px;
+                /*层内右边距*/
+                padding-top: 10px;
+                /*层内上边距*/
+                padding-bottom: 10px;
+                /*层内下边距*/
+                overflow-x: auto;
+                /*横向滚动条(scroll:始终出现;auto:必要时出现;具体参考CSS文档)*/
+                overflow-y: auto;
+                /*竖向滚动条*/
+                scrollbar-face-color: #D4D4D4; /*滚动条滑块颜色*/
+                scrollbar-hightlight-color: #ffffff;
+                /*滚动条3D界面的亮边颜色*/
+                scrollbar-shadow-color: #919192; /*滚动条3D界面的暗边颜色*/
+                scrollbar-3dlight-color: #ffffff;
+                /*滚动条亮边框颜色*/
+                scrollbar-arrow-color: #919192; /*箭头颜色*/
+                scrollbar-track-color: #ffffff; /*滚动条底色*/
+                scrollbar-darkshadow-color: #ffffff;
+                /*滚动条暗边框颜色*/
+            }
+        </style>
+        <script type="text/javascript">
+            
+            
+            
+            
+         
+		var SERVICE_CODE = null;
+		var API_KEY = 'abc';
+		var iplayer = null;
+		var player_style = null;
+		var BASE_URL = '';
+		
+		var dst_service_code = '';
+		var vs_id = '';
+
+		(function ($) {
+			$.getUrlParam = function (name) {
+				var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+				var r = window.location.search.substr(1).match(reg);
+				if (r != null) return unescape(r[2]); return null;
+			}
+		})(jQuery);
+
+		var is_console = "true" == $.getUrlParam('console');
+		is_console = true;
+		var is_ios = /(iPhone|iPod|iPad).*AppleWebKit.*Safari/i.test(navigator.userAgent);
+
+		function send_txt_msg(msg) {
+			var dst_user_name = $("#player").attr("data-user_name");
+			if (!dst_user_name) {
+				return;
+			}
+			console.log(dst_user_name);
+			var uri = "/action/send_txt_msg";
+			var query_str = 'service_code=' + SERVICE_CODE + "&dst_username=" + dst_user_name;
+			var val = $("#txt_message").val();
+			if (msg) {
+				query_str += "&message=" + msg;
+			} else {
+				alert('请输入要发送的消息内容');
+				return;
+			}
+			query_str += "&from_username=" + 'admin';
+
+			if (dst_service_code && dst_service_code != SERVICE_CODE) {
+				query_str += "&dst_service_code=" + dst_service_code;
+			}
+			var now = new Date().getTime().toString();
+			var signature = make_signature(uri, query_str, now, API_KEY).toString();
+
+			$.ajax({
+				type: "GET",
+				url: BASE_URL + uri + '?' + query_str,
+				headers: { "xvs-timestamp": now, "xvs-signature": signature },
+				dataType: "json",
+				crossDomain: true,
+				success: function (data) {
+					if (data.ret) {
+						alert('send message fail, ret: ' + JSON.stringify(data));
+					}
+				}
+			});
+		};
+
+		$(function () {
+			
+			var mouse_wheel_delta_y = 0;
+			var mouse_whell_time_out = null;
+			$('#pp').mousewheel(function (event) {
+				//console.log(event.deltaX, event.deltaY, event.deltaFactor);
+				mouse_wheel_delta_y += event.deltaY;
+				if (mouse_whell_time_out) {
+					clearTimeout(mouse_whell_time_out);
+				}
+				mouse_whell_time_out = setTimeout(function () {
+					console.log("zoom:" + mouse_wheel_delta_y);
+					var msg;
+					if (mouse_wheel_delta_y > 0) {
+						var msg = '{"cmd": "zoom_in", "params": [' + mouse_wheel_delta_y + ']}';
+					} else {
+						var msg = '{"cmd": "zoom_out", "params": [' + Math.abs(mouse_wheel_delta_y) + ']}';
+					}				
+					send_txt_msg(msg);
+					mouse_wheel_delta_y = 0;
+				}, 1000);
+				event.preventDefault();
+			});
+
+			var oRect = new Rect();
+            oRect.addEventListener(oRect.doc , 'mousedown' , oRect.down);
+            oRect.addEventListener(oRect.doc , 'mouseup' , oRect.up);
+	
+
+		});
+
+	    function onSwfLoaded() {
+	    	
+	    }
+
+	        function onSwfInited() {
+	        }
+      var flashVars = {
+        width: 260,
+        height: 148,
+        fps: 20,
+        file:'1',
+        /*
+         以下两行为初始化是否禁用音频或视频，如果这里不设置，
+         后面可以通过disableVideo(true/false)来动态设置
+        */
+        disable_video: 'true', /*只有'true'才禁用，其他任何值都是false, 此行省略就是false*/
+        disable_audio: 'false', /*只有'true'才禁用，其他任何值都是false, 此行省略就是false*/
+        on_inited: onSwfInited
+      };
+      
+        document.addEventListener("DOMContentLoaded", function(event) { 
+        	swfobject.embedSWF("swf/RtmpPublisher.swf", "rtmp_publisher", 
+        	"260", "148", '10.1.0', null, flashVars, null, null, onSwfLoaded);
+        });
+      		
+
+		function make_signature(uri, query_string, now, key) {
+			var data = uri + query_string + now;
+			//console.log("string: " + data);
+			return CryptoJS.HmacSHA256(data, key);
+		}
+
+		function call_api(api, param_str, on_success) {
+			var uri = '' + api;
+			var now = new Date().getTime();
+			var signature = make_signature(uri, param_str, now, API_KEY);
+			uri = BASE_URL + uri;
+			$.ajax({
+				type: "GET",
+				url: uri + (param_str ? "?" : "") + param_str,
+				headers: { "xvs-timestamp": now, "xvs-signature": signature },
+				dataType: "json",
+				crossDomain: true,
+				success: on_success ? on_success : on_task_list_update,
+				error: function (err, exception) {
+					alert('调用API失败, 错误信息: ' + JSON.stringify(err));
+				}
+			});
+		}
+
+		function select_task_and_play(file_name, user_name) {
+			if (player_style == null) {
+				player_style = $("#player").attr("style");
+			}
+			if (is_ios) {
+				player_style = "display: block; width: 280; height: 210px";
+			}
+			if (file_name) {
+				console.log('play url:' + file_name);
+				$("#player").attr('href', file_name);
+			}
+			
+			if (user_name) {
+				console.log("...." + user_name);
+			}
+			if (file_name) {
+				if (detectFlashInstalled()) {
+					if (iplayer != null) {
+						iplayer.stop();
+					}
+					parameters.src = 'http://' +  window.location.host + file_name;
+					console.log(JSON.stringify(parameters));
+					
+					swfobject.embedSWF('swf/woan_wmp.swf', 'player',
+						playerWidth, playerHeight, '10.1.0', 'expressInstall.swf', parameters,
+						{ allowFullScreen: 'true', wmode: 'direct' },
+						{ name: 'woan_fmp' }
+					);
+					$("#player").attr('data-user_name', user_name);
+					$("#btn_live_audio").attr('disabled',false);
+				}
+			} else if (isSafari() && /\.m3u8/.test(file_name)) {
+				if (file_name == null) {
+					iplayer = null;
+					$("#player").replaceWith('<video id="player" autoplay controls style="' + player_style + '"></video>');
+				} else {
+					$("#player").replaceWith('<video id="player" autoplay controls style="' + player_style + '"></video>');
+					iplayer = null;
+					$("#player").attr('src', file_name);
+					$("#player").load();
+					$("#player").play();
+				}
+			}
+		}
+
+		function cancel_task(task_id) {
+			console.log('cancel task:' + task_id);
+			var param_str = 'service_code=' + SERVICE_CODE + '&task_id=' + task_id;
+			call_api('/action/cancel_task', param_str, function (res) {
+				alert('取消任务执行结果:' + res.ret);
+			});
+		}
+
+		function isSafari() {
+			return Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0;
+		}
+
+		function detectFlashInstalled() {
+			var hasFlash = false;
+			try {
+				var fo = new ActiveXObject('ShockwaveFlash.ShockwaveFlash');
+				if (fo) {
+					hasFlash = true;
+				}
+			} catch (e) {
+				if (navigator.mimeTypes
+					&& navigator.mimeTypes['application/x-shockwave-flash'] != undefined
+					&& navigator.mimeTypes['application/x-shockwave-flash'].enabledPlugin) {
+					hasFlash = true;
+				}
+			}
+			return hasFlash;
+		}
+
+		/**
+		* 时间对象的格式化;
+		*/
+		Date.prototype.format = function (format) {
+			/*
+			* eg:format="yyyy-MM-dd hh:mm:ss";
+			*/
+			var o = {
+				"M+": this.getMonth() + 1, // month
+				"d+": this.getDate(), // day
+				"h+": this.getHours(), // hour
+				"m+": this.getMinutes(), // minute
+				"s+": this.getSeconds(), // second
+				"q+": Math.floor((this.getMonth() + 3) / 3), // quarter
+				"S": this.getMilliseconds()
+				// millisecond
+			}
+
+			if (/(y+)/.test(format)) {
+				format = format.replace(RegExp.$1, (this.getFullYear() + "").substr(4
+					- RegExp.$1.length));
+			}
+
+			for (var k in o) {
+				if (new RegExp("(" + k + ")").test(format)) {
+					format = format.replace(RegExp.$1, RegExp.$1.length == 1
+						? o[k]
+						: ("00" + o[k]).substr(("" + o[k]).length));
+				}
+			}
+			return format;
+		}
+
+		/*
+		* 根据task_list接口返回的数据更新WEB ui并播放
+		*/
+		function on_task_list_update(data) {
+			if (parseInt(data.ret)) {
+				$('#config_model').modal();
+				console.log('获取直播列表失败 ret=' + data.ret);
+				return;
+			}
+			$('#list').empty();
+			if (0 == data.task_list.length) {
+				$('#list-block').addClass('hide');
+				if (iplayer) {
+					$("#player").attr('href', '');
+					iplayer.stop();
+				}
+			}
+			var flv_uri = null;
+			var rtmp_uri = null;
+			for (var i = 0; i < data.task_list.length; i++) {
+				var m3u8_uri = null;
+				var task = data.task_list[i];
+				var cancel_button_txt = '';
+
+				if (is_console) {
+					var cancel_button_txt = '<button class="cancel btn btn-danger"' 
+					+ 'data-task-id="' + task.task_id + '"'
+					+ 'data-user_name="' + task.inputs[0].user_name + '"'
+					+' >踢出</button>';
+				}
+
+				if (task.opaque) {
+					var opaque = null;
+					try {
+						opaque = decodeURIComponent(task.opaque);
+						//console.log(opaque);
+						opaque = JSON.parse(opaque);
+					} catch (e) {
+
+					}
+					if (opaque.player_user) {
+						var dst_user_name = $("#player").attr("data-user_name");
+						if (dst_user_name == opaque.player_user) {
+							var rtmp_publisher = document.getElementById("rtmp_publisher");
+							if (rtmp_publisher.isPublishing()) {
+								document.getElementById("btn_live_audio").value = "已接通，点击停止语音通话";
+								$("#btn_live_audio").attr('class', 'btn btn-small btn-warning');
+							}
+						}
+						continue;
+					}
+				}
+
+				var progress = '直播';
+				if (task.progress > 0) {
+					progress = '进度' + (task.progress * 100).toFixed(0) + '%';
+				}
+				if (is_ios) {
+					progress = '';
+				}
+				var tr = '<tr><td>输入信号' + (task.sequence + 1) 
+					+ '</td><td>用户名:' + task.inputs[0].user_name 
+					+ '</td><td>' + progress + '</td><td>' + task.input_bytes +
+					'</td><td>' + cancel_button_txt + '</td></tr>';
+				for (var j = 0; j < task.outputs.length; j++) {
+					var output = task.outputs[j];
+					if (null == output) {
+						continue;
+					}
+					var disabled = "";
+					var btn_name = "播放";
+					var btn_class = '"play btn btn-primary"';
+					var file_name = output.file_name;
+					if (is_ios) {
+						file_name = '';
+					}
+
+
+					if (output.format == "flv" && !is_ios) {
+						if (!detectFlashInstalled()) {
+							btn_name = "不支持";
+							disabled = "disabled";
+						}
+						btn_name = "有延迟播放";
+						flv_uri = '/live/id/' + output.file_name;
+						tr += '<tr><td></td><td>直播输出' + (j + 1) + '</td><td>' + file_name +
+							'</td><td><button ' + disabled 
+							+ ' class=' + btn_class + ' data-url="' + flv_uri + '" data-user_name="'
+							+ task.inputs[0].user_name +'">' + btn_name + '</button></td></tr>';
+					} else if (output.format == "m3u8") {
+						if (!detectFlashInstalled()) {
+							btn_name = "不支持";
+							disabled = "disabled";
+						}
+						btn_name = "长延迟播放";
+						m3u8_uri = 'http://s3.cn-north-1.amazonaws.com.cn/xvs/pub/' + output.relative_dir.replace(/^.\//, '/') + "l_" + output.file_name;
+						m3u8_uri = output.live_url;
+						tr += '<tr><td></td><td>直播输出' + (j + 1) + '</td><td>' + file_name +
+							'</td><td><button class=' + btn_class + ' ' + disabled 
+							+ ' data="' + m3u8_uri + '"'
+							+ ' data-user_name="' + task.inputs[0].user_name + '"'
+							+'>' + btn_name + '</button></td></tr>';
+						console.log(m3u8_uri);
+					} else if (output.format == "mp3") {
+						btn_name = "不支持";
+						disabled = "disabled";
+						flv_uri = null;
+						m3u8_uri = null;
+						tr += '<tr><td></td><td>直播输出' + (j + 1) + '</td><td>' + file_name +
+							'</td><td><button ' + disabled + ' class=' + btn_class + ' data="' + flv_uri + '">' + btn_name + '</button></td></tr>';
+					} else if (output.format == "rtmp") {
+						btn_name = "打开";
+						flv_uri = null;
+						rtmp_uri = 'rtmp://rtmp-out.zhiboyun.com/live/' + task.id;
+						rtmp_uri = output.live_url;
+						tr += '<tr><td></td><td>实时远程视频' + (j + 1) + '</td><td>' + file_name + '</td>'
+						+ '<td><button ' + disabled + ' class=' + btn_class 
+						+ ' data-url="' + rtmp_uri + '" data-user_name="' + task.inputs[0].user_name +'">' 
+						+ btn_name + '</button></td></tr>';
+					}
+				}
+				if ((rtmp_uri || flv_uri || m3u8_uri) && i == 0 && parameters.src == "") {
+					if (detectFlashInstalled()) {
+						select_task_and_play(rtmp_uri);
+					} else if (isSafari()) {
+						select_task_and_play(m3u8_uri);
+					}
+				}
+				$('#list').append($(tr));
+			}
+
+			$('button.play').click(function () {
+				select_task_and_play($(this).attr('data-url'), $(this).attr('data-user_name'));
+			});
+
+			$('button.cancel').click(function () {
+				cancel_task($(this).attr('data'));
+			});
+			
+
+			if (0 == data.online_user_list.length) {
+				$('#btn_send_msg').addClass('disabled');
+			}
+		}
+
+		function query_task_list(on_success) {
+			if (API_KEY == null) {
+				$('#config_model').modal();
+				setTimeout(query_task_list, 2000);
+				return;
+			}
+			var query_string = 'service_code=' + SERVICE_CODE;
+			call_api("/manager/info", query_string, on_success);
+			setTimeout(query_task_list, 1000);
+		}
+
+		$(document).ready(function () {
+			select_task_and_play(null);
+			query_task_list(on_task_list_update);
+
+			if (!detectFlashInstalled() || !is_console) {
+				$('#send_audio_control').hide();
+			}
+
+			$("#btn_save_config").click(function () {
+				SERVICE_CODE = $('#service_code').val();
+				API_KEY = $('#secret_key').val();
+			});
+
+			$("#btn_send_msg").click(function () {
+				var content = $("#txt_message").val();
+				if (content) {
+					var msg = '{"cmd":"show_msg", "params": ["' + content + '"]}';
+					console.log(msg);
+					send_txt_msg(msg);
+				} else {
+					alert('请输入要发送的消息内容');
+					return;
+				}
+			});
+
+			$("#btn_task_list_json").click(function () {
+				query_task_list(function (data) {
+					$('#task_list_json').text(JSON.stringify(data));
+					$('#task_list_json_modal').modal();
+				});
+			});
+
+
+			$("#btn_open_flash").click(function () {
+				var msg = "{'cmd': 'open_flash'}";
+				send_txt_msg(msg);
+			});
+
+			$("#btn_close_flash").click(function () {
+				var msg = "{'cmd': 'close_flash'}";
+				send_txt_msg(msg);
+			});
+
+			$("#btn_zoom_in").click(function () {
+				var step = $("#spinner").spinner("value");
+				var msg = '{"cmd": "zoom_in", "params": [' + step + ']}';
+				send_txt_msg(msg);
+			});
+
+			$("#btn_zoom_out").click(function () {
+				var step = $("#spinner").spinner("value");
+				var msg = '{"cmd": "zoom_out", "params": [' + step + ']}';
+				send_txt_msg(msg);
+			});
+
+			$("#btn_take_picture").click(function () {
+				var msg = "{'cmd': 'take_picture', 'params': [1280, 720]}";
+				send_txt_msg(msg);
+			});
+
+
+			$("#btn_live_audio").click(function () {
+				var rtmp_publisher = document.getElementById("rtmp_publisher");
+				if (rtmp_publisher.isPublishing()) {
+					rtmp_publisher.disconnect();
+					$(this).attr('class', 'btn btn-small btn-primary');
+					$(this).attr('value', '发起语音通话');
+				} else {
+					var dst_user_name = $("#player").attr("data-user_name");
+					if (dst_user_name) {
+						var opaque = '{"player_user":"' + dst_user_name + '"}';
+						rtmp_publisher.connect('rtmp://'+window.location.hostname+':1934/live', 
+							'admin', 'admin', 'TESTING', 'flv', opaque);
+						
+						console.log('start live audio, opaque: ' + opaque);
+					}
+				}
+			});
+		});
+
+
+		function rtmpOnConnected() {
+			console.log("rtmp connect ok1");
+			document.getElementById("btn_live_audio").disabled = false;
+			var rtmp_publisher = document.getElementById("rtmp_publisher");
+			rtmp_publisher.startPublish();
+		}
+
+		function loseConnection() {
+			$("#btn_live_audio").disabled = true;
+			$("#btn_live_audio").val("开始语音通话");
+			$("#btn_live_audio").attr('class', 'btn btn-small btn-primary');
+			$("#btn_live_audio").stopPublish();
+		}
+
+		function rtmpOnStartPublish() {
+			console.log("rtmp start publish");
+			$("#btn_live_audio").val("连接成功正在接通中，点击取消");
+			$("#btn_live_audio").attr('class', 'btn btn-small btn-inverse');
+		}
+
+		function rtmpOnStopPublish() {
+			console.log("rtmp stop publish");
+			$("#btn_live_audio").val("开始语音通话");
+		}
+
+
+		function rtmpOnConnectFail() {
+			console.log("rtmp connect fail");
+			loseConnection();
+		}
+
+		function rtmpOnConnectClosed() {
+			console.log("rtmp connect close");
+			loseConnection();
+		}
+
+		function rtmpOnConnectRejected() {
+			console.log("rtmp connect rejected");
+			loseConnection();
+		}
+
+
+		/*
+		* 由main4record.js中recording_stopped事件回调
+		*/
+		function onSelectInput(dst_user_name) {
+			var uri = "/action/send_audio_msg";
+			var query_string = "";
+
+			$('.dst_user_name').each(function () {
+				if ($(this).prop('checked')) {
+					dst_user_name = $(this).attr('data-user_name');
+					vs_id = $(this).attr('data-vs_id');
+					dst_service_code = $(this).attr('data-service_code');
+				}
+			});
+			var action_url = "";
+			var signature = null;
+			var now = null;
+			if ('' == dst_user_name) {
+				action_url = '';
+			} else {
+				query_string += "dst_username=" + dst_user_name + "&vs_id=" + vs_id + "&service_code=" + SERVICE_CODE;
+				if (dst_service_code != SERVICE_CODE) {
+					query_string += "&dst_service_code=" + dst_service_code;
+				}
+				now = new Date().getTime().toString();
+				signature = make_signature(uri, query_string, now, API_KEY).toString();
+				action_url = uri + "?" + query_string;
+			}
+			connectRtmp();
+		}
+
+        
+        </script>
+    </head>
+    <body>
+        <div id="config_model" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-header">
+                <h3 id="myModalLabel">设置认证信息</h3>
+            </div>
+            <div class="modal-body">
+                <p>请在这里配置服务码和对应的认证密钥，否则无法调用直播云API</p>
+                <form class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="service_code">服务码</label>
+                        <div class="controls">
+                            <input type="text" id="service_code" placeholder="service_code">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="secret_key">认证密钥</label>
+                        <div class="controls">
+                            <input type="text" id="secret_key" placeholder="secret_key">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" data-dismiss="modal" aria-hidden="true">关闭</button>
+                <button class="btn btn-primary" aria-hidden="true" data-dismiss="modal" id="btn_save_config">保存</button>
+            </div>
+        </div>
+        <div id="task_list_json_modal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-header">
+                <h3 id="myModalLabel">云API返回的任务列表JSON数据</h3>
+            </div>
+            <div class="modal-body">
+                <p id="task_list_json"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" data-dismiss="modal" aria-hidden="true">关闭</button>
+            </div>
+        </div>
+        <div class="container row-fluid">
+            <div id="send_audio_control" class="span4 hero-unit">
+            <div id="rc">
+                <h4>远程控制</h4>
+                
+                    <div>
+                        <input type="button" id="btn_open_flash" class="btn btn-primary btn-small" value="打开闪光灯">
+                        <input type="button" id="btn_close_flash" class="btn btn-inverse btn-small" value="关闭闪光灯">
+                    </div>
+                    <div>
+                        <input type="button" id="btn_zoom_in" class="btn btn-primary btn-small" value="放大">
+                        步进:
+					<input id="spinner" name="zoom_">
+                        <input type="button" id="btn_zoom_out" class="btn btn-inverse btn-small" value="缩小">
+                    </div>
+                    <div>
+                        <input type="button" id="btn_take_picture" class="btn btn-info btn-small" value="拍照">
+                    </div>
+                </div>
+                <h4>光标操作</h4>
+                <div class="btn-group" data-toggle="buttons">
+                    <label class="btn btn-default">
+                        <input type="radio" id="mouse_action" name="mouse_action" value="draw_rect" checked="">画指示框
+    
+                    </label>
+                    <label class="btn btn-default">
+                        <input type="radio" id="mouse_action" name="mouse_action" value="focus">聚焦
+   
+                    </label>
+                </div>
+                <h4>语音通话</h4>
+                
+                <input type="button" id="btn_live_audio" class="btn btn-primary btn-small" disabled value="发起语音通话">
+               
+                <div style="margin-top: 5px;">
+                <div id="rtmp_publisher">
+                    <p>Flash not installed1</p>
+                </div>
+                </div>
+                <h4>发送文本消息</h4>
+                <div id="send_txt_msg">
+                    <div>
+                        <label>消息内容:</label>
+                        <textarea id="txt_message" placeholder="输入要发送的字符串" 
+                        	style="margin: 0px 0px 10px; width: 325px; height: 74px;"></textarea>
+                    </div>
+                    <div>
+                        <input type="button" id="btn_send_msg" class="btn btn-primary" value="发送消息">
+                    </div>
+                </div>
+            </div>
+            <div id="video" class="span7 hero-unit">
+                <div id="pp" style="display:inline-block;">
+                    <a href="#" style="display: block; width: 640px; height: 420px" id="player"></a>
+                </div>
+                <div class="scroll" style="clear: both;  height: 130px;margin-top: 10px;">
+                    <table id="list" class="table table-hover" style="width: 100%; visibiliy: show;"></table>
+                </div>
+            </div>
+            <!--<button class="btn btn-info" id="btn_task_list_json">查看云API(task_list)返回的JSON </button>-->
+        </div>
+    </body>
+</html>
