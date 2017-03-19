@@ -560,7 +560,7 @@
 					if (iplayer != null) {
 						iplayer.stop();
 					}
-					parameters.src = 'http://' +  window.location.host + file_name;
+					parameters.src = file_name; 
 					console.log(JSON.stringify(parameters));
 					
 					swfobject.embedSWF('swf/woan_wmp.swf', 'player',
@@ -727,7 +727,7 @@
 							disabled = "disabled";
 						}
 						btn_name = "有延迟播放";
-						flv_uri = '/live/id/' + output.file_name;
+						flv_uri = 'http://' + window.location.hostname + ':' + (window.location.port==''?'80':window.location.port)  +'/live/id/' + output.file_name;
 						tr += '<tr><td></td><td>直播输出' + (j + 1) + '</td><td>' + file_name +
 							'</td><td><button ' + disabled 
 							+ ' class=' + btn_class + ' data-url="' + flv_uri + '" data-user_name="'
@@ -756,8 +756,7 @@
 					} else if (output.format == "rtmp") {
 						btn_name = "打开";
 						flv_uri = null;
-						rtmp_uri = 'rtmp://rtmp-out.zhiboyun.com/live/' + task.id;
-						rtmp_uri = output.live_url;
+						rtmp_uri = 'rtmp://'+window.location.hostname+ ':1935/live/' + task.task_id;
 						tr += '<tr><td></td><td>实时远程视频' + (j + 1) + '</td><td>' + file_name + '</td>'
 						+ '<td><button ' + disabled + ' class=' + btn_class 
 						+ ' data-url="' + rtmp_uri + '" data-user_name="' + task.inputs[0].user_name +'">' 
